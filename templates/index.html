@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}首頁 - 掛機挖礦服務{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 text-center">
+        <div class="card">
+            <div class="card-body p-5">
+                <h1 class="display-4 mb-4">
+                    <i class="fas fa-hammer text-primary"></i>
+                    掛機挖礦服務
+                </h1>
+                <p class="lead mb-4">
+                    選擇您的礦場，開始自動挖礦！每天8:00、16:00、24:00自動發放原礦獎勵。
+                </p>
+                
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
+                            <h5>註冊帳號</h5>
+                            <p class="text-muted">創建您的挖礦帳號</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <i class="fas fa-mountain fa-3x text-success mb-3"></i>
+                            <h5>選擇礦場</h5>
+                            <p class="text-muted">從多個礦場中選擇</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <i class="fas fa-coins fa-3x text-warning mb-3"></i>
+                            <h5>獲得獎勵</h5>
+                            <p class="text-muted">自動獲得原礦獎勵</p>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if not current_user.is_authenticated %}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg me-md-2">
+                            <i class="fas fa-sign-in-alt me-2"></i>立即登錄
+                        </a>
+                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-user-plus me-2"></i>註冊帳號
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-success btn-lg">
+                            <i class="fas fa-tachometer-alt me-2"></i>進入控制台
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-clock text-info me-2"></i>獎勵時間
+                        </h5>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-sun text-warning me-2"></i>08:00 - 晨間獎勵</li>
+                            <li><i class="fas fa-cloud-sun text-warning me-2"></i>16:00 - 午後獎勵</li>
+                            <li><i class="fas fa-moon text-warning me-2"></i>24:00 - 夜間獎勵</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-info-circle text-info me-2"></i>服務特色
+                        </h5>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>全自動挖礦</li>
+                            <li><i class="fas fa-check text-success me-2"></i>多種礦場選擇</li>
+                            <li><i class="fas fa-check text-success me-2"></i>即時獎勵發放</li>
+                            <li><i class="fas fa-check text-success me-2"></i>安全可靠</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
