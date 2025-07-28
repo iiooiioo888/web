@@ -42,8 +42,51 @@
                     <i class="fas fa-user text-info me-2"></i>用戶信息
                 </h5>
                 <p class="mb-1"><strong>用戶名：</strong>{{ current_user.username }}</p>
-                <p class="mb-1"><strong>註冊時間：</strong>{{ current_user.created_at.strftime('%Y-%m-%d') }}</p>
+                <p class="mb-1"><strong>等級：</strong><span class="badge bg-primary">{{ current_user.level }}</span></p>
+                <p class="mb-1"><strong>經驗值：</strong>{{ current_user.experience|round(0) }} / {{ (current_user.level * 1000)|round(0) }}</p>
+                <div class="progress mb-2" style="height: 8px;">
+                    <div class="progress-bar bg-success" style="width: {{ (current_user.experience / (current_user.level * 1000)) * 100 }}%"></div>
+                </div>
+                <p class="mb-1"><strong>總挖礦時間：</strong>{{ current_user.total_mining_time|round(1) }} 小時</p>
+                <p class="mb-1"><strong>連續挖礦：</strong>{{ current_user.consecutive_mining_days }} 天</p>
                 <p class="mb-0"><strong>原礦餘額：</strong><span class="text-warning fw-bold">{{ current_user.balance|round(2) }}</span></p>
+            </div>
+        </div>
+        
+        <!-- 材料庫存 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-boxes text-primary me-2"></i>材料庫存
+                </h5>
+                <div class="row">
+                    <div class="col-4 text-center">
+                        <div class="material-item">
+                            <i class="fas fa-cube text-warning fa-2x mb-2"></i>
+                            <h6>鐵</h6>
+                            <span class="badge bg-warning">{{ current_user.iron|round(2) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="material-item">
+                            <i class="fas fa-cube text-success fa-2x mb-2"></i>
+                            <h6>銅</h6>
+                            <span class="badge bg-success">{{ current_user.copper|round(2) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="material-item">
+                            <i class="fas fa-cube text-secondary fa-2x mb-2"></i>
+                            <h6>石</h6>
+                            <span class="badge bg-secondary">{{ current_user.stone|round(2) }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('refinery') }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-industry me-1"></i>前往精煉廠
+                    </a>
+                </div>
             </div>
         </div>
     </div>
@@ -64,36 +107,36 @@
                                     <h6 class="card-title">{{ mine.name }}</h6>
                                     <p class="card-text small text-muted">{{ mine.description }}</p>
                                     
-                                    <div class="row text-center mb-3">
-                                        <div class="col-4">
-                                            <small class="text-muted">倍率</small>
-                                            <div class="fw-bold text-primary">{{ mine.base_reward_rate }}x</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <small class="text-muted">容量</small>
-                                            <div class="fw-bold">{{ mine.current_players }}/{{ mine.max_capacity }}</div>
-                                        </div>
-                                        <div class="col-4">
-                                            <small class="text-muted">狀態</small>
-                                            <div class="fw-bold {% if mine.is_active %}text-success{% else %}text-danger{% endif %}">
-                                                {% if mine.is_active %}開放{% else %}關閉{% endif %}
+                                    <div class="mine-stats">
+                                        <div class="row text-center">
+                                            <div class="col-4">
+                                                <small class="text-muted">倍率</small><br>
+                                                <span class="badge bg-primary">{{ mine.base_reward_rate }}x</span>
+                                            </div>
+                                            <div class="col-4">
+                                                <small class="text-muted">容量</small><br>
+                                                <span class="badge bg-info">{{ mine.current_players }}/{{ mine.max_capacity }}</span>
+                                            </div>
+                                            <div class="col-4">
+                                                <small class="text-muted">等級</small><br>
+                                                <span class="badge bg-warning">{{ mine.required_level }}+</span>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    {% if mine.is_active and mine.current_players < mine.max_capacity %}
-                                        <button class="btn btn-success btn-sm w-100" onclick="startMining({{ mine.id }})">
-                                            <i class="fas fa-play me-1"></i>開始挖礦
+                                    <form method="POST" action="{{ url_for('start_mining') }}" class="mt-3">
+                                        <input type="hidden" name="mine_id" value="{{ mine.id }}">
+                                        <button type="submit" class="btn btn-success btn-sm w-100" 
+                                                {% if mine.current_players >= mine.max_capacity or current_user.level < mine.required_level %}disabled{% endif %}>
+                                            {% if mine.current_players >= mine.max_capacity %}
+                                                <i class="fas fa-times me-1"></i>礦場已滿
+                                            {% elif current_user.level < mine.required_level %}
+                                                <i class="fas fa-lock me-1"></i>等級不足
+                                            {% else %}
+                                                <i class="fas fa-play me-1"></i>開始挖礦
+                                            {% endif %}
                                         </button>
-                                    {% elif not mine.is_active %}
-                                        <button class="btn btn-secondary btn-sm w-100" disabled>
-                                            <i class="fas fa-times me-1"></i>礦場關閉
-                                        </button>
-                                    {% else %}
-                                        <button class="btn btn-warning btn-sm w-100" disabled>
-                                            <i class="fas fa-users me-1"></i>礦場已滿
-                                        </button>
-                                    {% endif %}
+                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -104,95 +147,141 @@
     </div>
 </div>
 
-<!-- 獎勵歷史 -->
+<!-- 獎勵記錄 -->
 <div class="row">
     <div class="col-12">
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">
-                    <i class="fas fa-history text-warning me-2"></i>獎勵歷史
+                    <i class="fas fa-history text-info me-2"></i>最近獎勵
                 </h5>
                 
-                <div class="reward-history">
-                    {% if recent_rewards %}
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>時間</th>
-                                        <th>礦場</th>
-                                        <th>獎勵數量</th>
-                                        <th>類型</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for reward in recent_rewards %}
-                                        <tr>
-                                            <td>{{ reward.reward_time.strftime('%Y-%m-%d %H:%M') }}</td>
-                                            <td>{{ reward.mine.name }}</td>
-                                            <td class="text-warning fw-bold">{{ reward.amount|round(2) }} 原礦</td>
-                                            <td>
-                                                <span class="badge bg-primary">{{ reward.reward_type }}</span>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-inbox fa-3x mb-3"></i>
-                            <p>還沒有獎勵記錄</p>
-                            <p class="small">開始挖礦後將在這裡顯示獎勵歷史</p>
-                        </div>
-                    {% endif %}
-                </div>
+                {% if recent_rewards %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>時間</th>
+                                    <th>類型</th>
+                                    <th>描述</th>
+                                    <th>金額</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reward in recent_rewards %}
+                                <tr>
+                                    <td>{{ reward.reward_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        {% if reward.reward_type == 'hourly' %}
+                                            <span class="badge bg-primary">挖礦獎勵</span>
+                                        {% elif reward.reward_type == 'level_up' %}
+                                            <span class="badge bg-success">等級提升</span>
+                                        {% else %}
+                                            <span class="badge bg-info">{{ reward.reward_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ reward.description }}</td>
+                                    <td class="text-warning fw-bold">+{{ reward.amount|round(0) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                        <p>暫無獎勵記錄</p>
+                        <p class="small">開始挖礦來獲得獎勵吧！</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
+<style>
+.mining-status {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.mine-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.mine-card:hover {
+    transform: translateY(-2px);
+    border-color: #28a745;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.mine-stats {
+    margin: 15px 0;
+}
+
+.material-item {
+    padding: 10px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.material-item:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.progress {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.progress-bar {
+    border-radius: 4px;
+}
+</style>
+
 <script>
-// 更新挖礦時長
-function updateMiningDuration() {
-    $.get('/api/mining_status', function(data) {
-        if (data.is_mining) {
-            $('#mining-duration').text(data.duration + ' 小時');
-        }
-    });
-}
-
-// 開始挖礦
-function startMining(mineId) {
-    $.post('/start_mining', {mine_id: mineId}, function(data) {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert(data.message);
-        }
-    });
-}
-
-// 停止挖礦
 function stopMining() {
     if (confirm('確定要停止挖礦嗎？')) {
-        $.post('/stop_mining', function(data) {
+        fetch('/stop_mining', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
             if (data.success) {
-                alert(data.message);
                 location.reload();
             } else {
-                alert(data.message);
+                alert('停止挖礦失敗：' + data.message);
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('操作失敗，請重試');
         });
     }
 }
 
-// 每30秒更新挖礦狀態
-{% if active_session %}
+// 更新挖礦時長
+function updateMiningDuration() {
+    fetch('/api/mining_status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.is_mining) {
+                document.getElementById('mining-duration').textContent = data.duration + ' 小時';
+            }
+        });
+}
+
+// 每30秒更新一次挖礦時長
 setInterval(updateMiningDuration, 30000);
 updateMiningDuration();
-{% endif %}
 </script>
 {% endblock %} 

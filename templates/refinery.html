@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}原礦精煉 - 掛機挖礦服務{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 材料庫存 -->
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-boxes text-primary me-2"></i>材料庫存
+                </h5>
+                <div class="row">
+                    <div class="col-4 text-center">
+                        <div class="material-item">
+                            <i class="fas fa-cube text-warning fa-2x mb-2"></i>
+                            <h6>鐵</h6>
+                            <span class="badge bg-warning">{{ current_user.iron|round(2) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="material-item">
+                            <i class="fas fa-cube text-success fa-2x mb-2"></i>
+                            <h6>銅</h6>
+                            <span class="badge bg-success">{{ current_user.copper|round(2) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-4 text-center">
+                        <div class="material-item">
+                            <i class="fas fa-cube text-secondary fa-2x mb-2"></i>
+                            <h6>石</h6>
+                            <span class="badge bg-secondary">{{ current_user.stone|round(2) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 精煉功能 -->
+    <div class="col-md-8 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-industry text-primary me-2"></i>原礦精煉
+                </h5>
+                
+                <form method="POST" action="{{ url_for('refine') }}">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="refinery_id" class="form-label">選擇精煉廠</label>
+                            <select class="form-select" id="refinery_id" name="refinery_id" required>
+                                <option value="">請選擇精煉廠</option>
+                                {% for refinery in refineries %}
+                                <option value="{{ refinery.id }}" 
+                                        data-efficiency="{{ refinery.efficiency }}"
+                                        data-cost="{{ refinery.cost_per_ore }}">
+                                    {{ refinery.name }} (效率: {{ refinery.efficiency }}x)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="material_id" class="form-label">選擇材料</label>
+                            <select class="form-select" id="material_id" name="material_id" required>
+                                <option value="">請選擇材料</option>
+                                {% for material in materials %}
+                                <option value="{{ material.id }}" data-name="{{ material.name }}">
+                                    {{ material.name }} (價值: {{ material.base_value }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label for="ore_amount" class="form-label">原礦數量</label>
+                            <input type="number" class="form-control" id="ore_amount" name="ore_amount" 
+                                   min="1" max="{{ current_user.balance|int }}" value="100" required>
+                            <div class="form-text">可用原礦: {{ current_user.balance|int }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <div id="refining-preview" class="alert alert-info" style="display: none;">
+                                <h6>精煉預覽</h6>
+                                <p id="preview-text"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-cog me-2"></i>開始精煉
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 精煉廠信息 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle text-primary me-2"></i>精煉廠信息
+                </h5>
+                <div class="row">
+                    {% for refinery in refineries %}
+                    <div class="col-md-4 mb-3">
+                        <div class="refinery-info">
+                            <h6>{{ refinery.name }}</h6>
+                            <p class="text-muted">{{ refinery.description }}</p>
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">效率</small><br>
+                                    <span class="badge bg-primary">{{ refinery.efficiency }}x</span>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">成本/原礦</small><br>
+                                    <span class="badge bg-warning">{{ refinery.cost_per_ore }}</span>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted">容量使用</small>
+                                <div class="progress">
+                                    <div class="progress-bar" role="progressbar" 
+                                         style="width: {{ (refinery.current_usage / refinery.max_capacity * 100)|round(1) }}%">
+                                        {{ refinery.current_usage }}/{{ refinery.max_capacity }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 精煉記錄 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-history text-primary me-2"></i>精煉記錄
+                </h5>
+                
+                {% if recent_refining %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>精煉廠</th>
+                                <th>材料</th>
+                                <th>消耗原礦</th>
+                                <th>獲得材料</th>
+                                <th>成本</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in recent_refining %}
+                            <tr>
+                                <td>{{ record.refining_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ record.refinery.name }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ record.material.name }}</span>
+                                </td>
+                                <td>{{ record.ore_amount|int }}</td>
+                                <td>{{ record.material_amount|round(2) }}</td>
+                                <td>{{ record.cost|int }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>暫無精煉記錄</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.material-item {
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.material-item:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.refinery-info {
+    padding: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.progress {
+    height: 20px;
+}
+
+.progress-bar {
+    font-size: 12px;
+    line-height: 20px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const refinerySelect = document.getElementById('refinery_id');
+    const materialSelect = document.getElementById('material_id');
+    const oreAmountInput = document.getElementById('ore_amount');
+    const previewDiv = document.getElementById('refining-preview');
+    const previewText = document.getElementById('preview-text');
+    
+    function updatePreview() {
+        const refinery = refinerySelect.options[refinerySelect.selectedIndex];
+        const material = materialSelect.options[materialSelect.selectedIndex];
+        const oreAmount = parseFloat(oreAmountInput.value) || 0;
+        
+        if (refinery.value && material.value && oreAmount > 0) {
+            const efficiency = parseFloat(refinery.dataset.efficiency);
+            const costPerOre = parseFloat(refinery.dataset.cost);
+            const materialName = material.dataset.name;
+            
+            const materialAmount = oreAmount * 0.1 * efficiency;
+            const totalCost = oreAmount * costPerOre;
+            
+            previewText.innerHTML = `
+                消耗: ${oreAmount} 原礦<br>
+                獲得: ${materialAmount.toFixed(2)} ${materialName}<br>
+                成本: ${totalCost.toFixed(0)} 原礦<br>
+                總消耗: ${(oreAmount + totalCost).toFixed(0)} 原礦
+            `;
+            previewDiv.style.display = 'block';
+        } else {
+            previewDiv.style.display = 'none';
+        }
+    }
+    
+    refinerySelect.addEventListener('change', updatePreview);
+    materialSelect.addEventListener('change', updatePreview);
+    oreAmountInput.addEventListener('input', updatePreview);
+});
+</script>
+{% endblock %} 
