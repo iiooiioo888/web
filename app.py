@@ -17,7 +17,7 @@ import random
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mining_service.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user_pysdn_net:password_cKcZrJ@47.83.207.219:5432/user_pysdn_net'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
