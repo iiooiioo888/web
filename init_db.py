@@ -30,9 +30,36 @@ def init_database():
         # 創建默認精煉廠
         if not Refinery.query.first():
             refineries = [
-                Refinery(name="基礎精煉廠", description="適合新手的基礎精煉廠", efficiency=1.0, cost_per_ore=50.0),
-                Refinery(name="高效精煉廠", description="高效率的精煉廠", efficiency=1.5, cost_per_ore=100.0),
-                Refinery(name="大師精煉廠", description="最高效率的精煉廠", efficiency=2.0, cost_per_ore=200.0)
+                Refinery(
+                    name="基礎精煉廠", 
+                    description="適合新手的基礎精煉廠", 
+                    efficiency=1.0, 
+                    cost_per_ore=0.0,
+                    max_capacity=999999999,
+                    refining_multiplier=1.0,
+                    environment_multiplier=1.0,
+                    correction_factor=1.0
+                ),
+                Refinery(
+                    name="高效精煉廠", 
+                    description="高效率的精煉廠", 
+                    efficiency=1.5, 
+                    cost_per_ore=0.0,
+                    max_capacity=999999999,
+                    refining_multiplier=1.2,
+                    environment_multiplier=1.1,
+                    correction_factor=1.05
+                ),
+                Refinery(
+                    name="大師精煉廠", 
+                    description="最高效率的精煉廠", 
+                    efficiency=2.0, 
+                    cost_per_ore=0.0,
+                    max_capacity=999999999,
+                    refining_multiplier=1.5,
+                    environment_multiplier=1.3,
+                    correction_factor=1.1
+                )
             ]
             db.session.add_all(refineries)
             db.session.commit()

@@ -55,20 +55,11 @@
                                 {% for refinery in refineries %}
                                 <option value="{{ refinery.id }}" 
                                         data-efficiency="{{ refinery.efficiency }}"
-                                        data-cost="{{ refinery.cost_per_ore }}">
+                                        data-cost="{{ refinery.cost_per_ore }}"
+                                        data-refining-multiplier="{{ refinery.refining_multiplier }}"
+                                        data-environment-multiplier="{{ refinery.environment_multiplier }}"
+                                        data-correction-factor="{{ refinery.correction_factor }}">
                                     {{ refinery.name }} (效率: {{ refinery.efficiency }}x)
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-4 mb-3">
-                            <label for="material_id" class="form-label">選擇材料</label>
-                            <select class="form-select" id="material_id" name="material_id" required>
-                                <option value="">請選擇材料</option>
-                                {% for material in materials %}
-                                <option value="{{ material.id }}" data-name="{{ material.name }}">
-                                    {{ material.name }} (價值: {{ material.base_value }})
                                 </option>
                                 {% endfor %}
                             </select>
@@ -79,6 +70,13 @@
                             <input type="number" class="form-control" id="ore_amount" name="ore_amount" 
                                    min="1" max="{{ current_user.balance|int }}" value="100" required>
                             <div class="form-text">可用原礦: {{ current_user.balance|int }}</div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">產出材料</label>
+                            <div class="form-control-plaintext text-muted">
+                                <i class="fas fa-random me-2"></i>由系統隨機決定
+                            </div>
                         </div>
                     </div>
                     
@@ -124,12 +122,30 @@
                                     <span class="badge bg-warning">{{ refinery.cost_per_ore }}</span>
                                 </div>
                             </div>
+                            <div class="row mt-2">
+                                <div class="col-4">
+                                    <small class="text-muted">精煉倍數</small><br>
+                                    <span class="badge bg-success">{{ refinery.refining_multiplier }}x</span>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">環境倍數</small><br>
+                                    <span class="badge bg-info">{{ refinery.environment_multiplier }}x</span>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">修正系數</small><br>
+                                    <span class="badge bg-secondary">{{ refinery.correction_factor }}x</span>
+                                </div>
+                            </div>
                             <div class="mt-2">
                                 <small class="text-muted">容量使用</small>
                                 <div class="progress">
                                     <div class="progress-bar" role="progressbar" 
-                                         style="width: {{ (refinery.current_usage / refinery.max_capacity * 100)|round(1) }}%">
-                                        {{ refinery.current_usage }}/{{ refinery.max_capacity }}
+                                         style="width: {{ (refinery.current_usage / refinery.max_capacity * 100)|round(1) if refinery.max_capacity < 999999999 else 0 }}%">
+                                        {% if refinery.max_capacity >= 999999999 %}
+                                            無上限
+                                        {% else %}
+                                            {{ refinery.current_usage }}/{{ refinery.max_capacity }}
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -224,29 +240,40 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const refinerySelect = document.getElementById('refinery_id');
-    const materialSelect = document.getElementById('material_id');
     const oreAmountInput = document.getElementById('ore_amount');
     const previewDiv = document.getElementById('refining-preview');
     const previewText = document.getElementById('preview-text');
     
     function updatePreview() {
         const refinery = refinerySelect.options[refinerySelect.selectedIndex];
-        const material = materialSelect.options[materialSelect.selectedIndex];
         const oreAmount = parseFloat(oreAmountInput.value) || 0;
         
-        if (refinery.value && material.value && oreAmount > 0) {
+        if (refinery.value && oreAmount > 0) {
             const efficiency = parseFloat(refinery.dataset.efficiency);
             const costPerOre = parseFloat(refinery.dataset.cost);
-            const materialName = material.dataset.name;
+            const refiningMultiplier = parseFloat(refinery.dataset.refiningMultiplier);
+            const environmentMultiplier = parseFloat(refinery.dataset.environmentMultiplier);
+            const correctionFactor = parseFloat(refinery.dataset.correctionFactor);
             
-            const materialAmount = oreAmount * 0.1 * efficiency;
+            // 計算最終材料數量（包含所有倍數）
+            const baseRatio = 0.1;
+            const efficiencyRatio = baseRatio * efficiency;
+            const refiningRatio = efficiencyRatio * refiningMultiplier;
+            const environmentRatio = refiningRatio * environmentMultiplier;
+            const finalRatio = environmentRatio * correctionFactor;
+            const materialAmount = oreAmount * finalRatio;
+            
             const totalCost = oreAmount * costPerOre;
             
             previewText.innerHTML = `
                 消耗: ${oreAmount} 原礦<br>
-                獲得: ${materialAmount.toFixed(2)} ${materialName}<br>
+                預估獲得: ${materialAmount.toFixed(2)} 材料<br>
                 成本: ${totalCost.toFixed(0)} 原礦<br>
-                總消耗: ${(oreAmount + totalCost).toFixed(0)} 原礦
+                總消耗: ${(oreAmount + totalCost).toFixed(0)} 原礦<br>
+                <small class="text-muted">
+                    效率: ${efficiency}x | 精煉: ${refiningMultiplier}x | 環境: ${environmentMultiplier}x | 修正: ${correctionFactor}x<br>
+                    <i class="fas fa-info-circle"></i> 產出材料由系統隨機決定
+                </small>
             `;
             previewDiv.style.display = 'block';
         } else {
@@ -255,7 +282,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     refinerySelect.addEventListener('change', updatePreview);
-    materialSelect.addEventListener('change', updatePreview);
     oreAmountInput.addEventListener('input', updatePreview);
 });
 </script>

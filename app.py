@@ -95,6 +95,11 @@ class Refinery(db.Model):
     cost_per_ore = db.Column(db.Float, default=100.0)  # 每單位原礦精煉成本
     max_capacity = db.Column(db.Integer, default=1000)  # 最大容量
     current_usage = db.Column(db.Integer, default=0)  # 當前使用量
+    
+    # 新增參數
+    refining_multiplier = db.Column(db.Float, default=1.0)  # 精煉倍數
+    environment_multiplier = db.Column(db.Float, default=1.0)  # 環境倍數
+    correction_factor = db.Column(db.Float, default=1.0)  # 修正系數
 
 class Material(db.Model):
     """材料模型"""
@@ -192,12 +197,21 @@ def calculate_refining_result(ore_amount, refinery, material):
     # 精煉廠效率影響
     efficiency_ratio = base_ratio * refinery.efficiency
     
+    # 新增參數影響
+    # 精煉倍數：直接影響材料產出
+    refining_ratio = efficiency_ratio * refinery.refining_multiplier
+    
+    # 環境倍數：模擬環境因素對精煉的影響
+    environment_ratio = refining_ratio * refinery.environment_multiplier
+    
+    # 修正系數：最終調整因子
+    final_ratio = environment_ratio * refinery.correction_factor
+    
     # 計算獲得材料數量
-    material_amount = ore_amount * efficiency_ratio
+    material_amount = ore_amount * final_ratio
     
-    # 計算成本
+    # 計算成本（成本不受新參數影響）
     cost = ore_amount * refinery.cost_per_ore
-    
     
     return material_amount, cost
 
@@ -350,55 +364,63 @@ def stop_mining():
     ).first()
     
     if not session:
-        flash('您沒有在挖礦')
-        return redirect(url_for('dashboard'))
+        return jsonify({'success': False, 'message': '您沒有在挖礦'})
     
-    # 計算挖礦時間
-    end_time = datetime.utcnow()
-    duration = (end_time - session.start_time).total_seconds() / 3600  # 轉換為小時
-    
-    # 更新會話
-    session.end_time = end_time
-    session.is_active = False
-    session.total_mining_time = duration
-    
-    # 更新礦場玩家數
-    mine = Mine.query.get(session.mine_id)
-    mine.current_players -= 1
-    
-    # 計算獎勵
-    reward_amount, special_event = calculate_reward(current_user, mine, duration)
-    current_user.balance += reward_amount
-    
-    # 更新用戶統計
-    current_user.total_mining_time += duration
-    current_user.experience += duration * 100  # 每小時100經驗
-    update_consecutive_mining(current_user)
-    
-    # 檢查等級提升
-    level_up, level_reward = check_level_up(current_user)
-    
-    # 創建獎勵記錄
-    reward = Reward(
-        user_id=current_user.id,
-        mine_id=session.mine_id,
-        amount=reward_amount,
-        reward_type='hourly',
-        description=f'挖礦獎勵 - {mine.name} ({duration:.2f}小時)'
-    )
-    db.session.add(reward)
-    
-    db.session.commit()
-    
-    # 準備返回消息
-    message = f'挖礦結束！獲得 {reward_amount:.0f} 原礦'
-    if special_event:
-        message += ' (特殊事件！)'
-    if level_up:
-        message += f' 等級提升到 {current_user.level} 級！'
-    
-    flash(message)
-    return redirect(url_for('dashboard'))
+    try:
+        # 計算挖礦時間
+        end_time = datetime.utcnow()
+        duration = (end_time - session.start_time).total_seconds() / 3600  # 轉換為小時
+        
+        # 更新會話
+        session.end_time = end_time
+        session.is_active = False
+        session.total_mining_time = duration
+        
+        # 更新礦場玩家數
+        mine = Mine.query.get(session.mine_id)
+        mine.current_players -= 1
+        
+        # 計算獎勵
+        reward_amount, special_event = calculate_reward(current_user, mine, duration)
+        current_user.balance += reward_amount
+        
+        # 更新用戶統計
+        current_user.total_mining_time += duration
+        current_user.experience += duration * 100  # 每小時100經驗
+        update_consecutive_mining(current_user)
+        
+        # 檢查等級提升
+        level_up, level_reward = check_level_up(current_user)
+        
+        # 創建獎勵記錄
+        reward = Reward(
+            user_id=current_user.id,
+            mine_id=session.mine_id,
+            amount=reward_amount,
+            reward_type='hourly',
+            description=f'挖礦獎勵 - {mine.name} ({duration:.2f}小時)'
+        )
+        db.session.add(reward)
+        
+        db.session.commit()
+        
+        # 準備返回消息
+        message = f'挖礦結束！獲得 {reward_amount:.0f} 原礦'
+        if special_event:
+            message += ' (特殊事件！)'
+        if level_up:
+            message += f' 等級提升到 {current_user.level} 級！'
+        
+        return jsonify({
+            'success': True, 
+            'message': message,
+            'reward_amount': reward_amount,
+            'duration': round(duration, 2)
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'停止挖礦失敗：{str(e)}'})
 
 @app.route('/api/mining_status')
 @login_required
@@ -442,10 +464,9 @@ def refinery():
 def refine():
     """執行精煉"""
     refinery_id = request.form.get('refinery_id', type=int)
-    material_id = request.form.get('material_id', type=int)
     ore_amount = request.form.get('ore_amount', type=float)
     
-    if not all([refinery_id, material_id, ore_amount]):
+    if not all([refinery_id, ore_amount]):
         flash('請填寫完整的精煉信息')
         return redirect(url_for('refinery'))
     
@@ -455,19 +476,22 @@ def refine():
         flash('精煉廠不可用')
         return redirect(url_for('refinery'))
     
-    # 檢查材料
-    material = Material.query.get(material_id)
-    if not material or not material.is_active:
-        flash('材料不可用')
-        return redirect(url_for('refinery'))
-    
     # 檢查原礦餘額
     if current_user.balance < ore_amount:
         flash('原礦餘額不足')
         return redirect(url_for('refinery'))
     
+    # 隨機選擇產出材料
+    available_materials = Material.query.filter_by(is_active=True).all()
+    if not available_materials:
+        flash('沒有可用的材料')
+        return redirect(url_for('refinery'))
+    
+    # 均等機率隨機選擇材料（鐵、銅、石各33.33%）
+    selected_material = random.choice(available_materials)
+    
     # 計算精煉結果
-    material_amount, cost = calculate_refining_result(ore_amount, refinery, material)
+    material_amount, cost = calculate_refining_result(ore_amount, refinery, selected_material)
     
     # 檢查精煉廠容量
     if refinery.current_usage + ore_amount > refinery.max_capacity:
@@ -479,11 +503,11 @@ def refine():
     current_user.balance -= cost
     
     # 根據材料類型增加庫存
-    if material.name == '鐵':
+    if selected_material.name == '鐵':
         current_user.iron += material_amount
-    elif material.name == '銅':
+    elif selected_material.name == '銅':
         current_user.copper += material_amount
-    elif material.name == '石':
+    elif selected_material.name == '石':
         current_user.stone += material_amount
     
     # 更新精煉廠使用量
@@ -493,7 +517,7 @@ def refine():
     record = RefiningRecord(
         user_id=current_user.id,
         refinery_id=refinery_id,
-        material_id=material_id,
+        material_id=selected_material.id,
         ore_amount=ore_amount,
         material_amount=material_amount,
         cost=cost
@@ -502,7 +526,7 @@ def refine():
     
     db.session.commit()
     
-    flash(f'精煉成功！消耗 {ore_amount:.0f} 原礦，獲得 {material_amount:.2f} {material.name}')
+    flash(f'精煉成功！消耗 {ore_amount:.0f} 原礦，獲得 {material_amount:.2f} {selected_material.name}')
     return redirect(url_for('refinery'))
 
 # 定時任務
