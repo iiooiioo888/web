@@ -375,24 +375,27 @@
                     const environmentMultiplier = parseFloat(refinery.dataset.environmentMultiplier);
                     const correctionFactor = parseFloat(refinery.dataset.correctionFactor);
                     
-                    // 計算最終材料數量（包含所有倍數）
+                    // 計算單個原礦的材料數量（包含所有倍數）
                     const baseRatio = 0.1;
                     const efficiencyRatio = baseRatio * efficiency;
                     const refiningRatio = efficiencyRatio * refiningMultiplier;
                     const environmentRatio = refiningRatio * environmentMultiplier;
                     const finalRatio = environmentRatio * correctionFactor;
-                    const materialAmount = oreAmount * finalRatio;
+                    const singleMaterialAmount = finalRatio;
+                    
+                    // 計算總材料數量（每個原礦獨立計算）
+                    const totalMaterialAmount = oreAmount * singleMaterialAmount;
                     
                     const totalCost = oreAmount * costPerOre;
                     
                     previewText.innerHTML = `
                         消耗: ${oreAmount} 原礦<br>
-                        預估獲得: ${materialAmount.toFixed(2)} 元素<br>
+                        預估獲得: ${totalMaterialAmount.toFixed(2)} 元素<br>
                         成本: ${totalCost.toFixed(0)} 原礦<br>
                         總消耗: ${(oreAmount + totalCost).toFixed(0)} 原礦<br>
                         <small class="text-muted">
                             效率: ${efficiency}x | 精煉: ${refiningMultiplier}x | 環境: ${environmentMultiplier}x | 修正: ${correctionFactor}x<br>
-                            <i class="fas fa-info-circle"></i> 產出元素由系統隨機決定（基於稀有度）
+                            <i class="fas fa-info-circle"></i> 每個原礦獨立計算產出（基於稀有度隨機決定）
                         </small>
                     `;
                     previewDiv.style.display = 'block';

@@ -481,7 +481,12 @@ def refine():
         flash('原礦餘額不足')
         return redirect(url_for('refinery'))
     
-    # 隨機選擇產出元素
+    # 檢查精煉廠容量
+    if refinery.current_usage + ore_amount > refinery.max_capacity:
+        flash('精煉廠容量不足')
+        return redirect(url_for('refinery'))
+    
+    # 獲取可用材料
     available_materials = Material.query.filter_by(is_active=True).all()
     if not available_materials:
         flash('沒有可用的元素')
@@ -504,54 +509,74 @@ def refine():
         'very-rare': 0.05   # 5% 機率獲得極稀有元素
     }
     
-    # 根據權重選擇稀有度
-    selected_rarity = random.choices(
-        list(rarity_weights.keys()),
-        weights=list(rarity_weights.values())
-    )[0]
+    # 初始化結果統計
+    total_material_amount = 0.0
+    total_cost = 0.0
+    material_results = {}  # 記錄每種材料獲得的數量
     
-    # 從選中的稀有度中隨機選擇元素
-    if materials_by_rarity[selected_rarity]:
-        selected_material = random.choice(materials_by_rarity[selected_rarity])
-    else:
-        # 如果該稀有度沒有元素，從常見元素中選擇
-        selected_material = random.choice(materials_by_rarity['common'])
-    
-    # 計算精煉結果
-    material_amount, cost = calculate_refining_result(ore_amount, refinery, selected_material)
-    
-    # 檢查精煉廠容量
-    if refinery.current_usage + ore_amount > refinery.max_capacity:
-        flash('精煉廠容量不足')
-        return redirect(url_for('refinery'))
+    # 對每個原礦進行獨立計算
+    for i in range(int(ore_amount)):
+        # 根據權重選擇稀有度
+        selected_rarity = random.choices(
+            list(rarity_weights.keys()),
+            weights=list(rarity_weights.values())
+        )[0]
+        
+        # 從選中的稀有度中隨機選擇元素
+        if materials_by_rarity[selected_rarity]:
+            selected_material = random.choice(materials_by_rarity[selected_rarity])
+        else:
+            # 如果該稀有度沒有元素，從常見元素中選擇
+            selected_material = random.choice(materials_by_rarity['common'])
+        
+        # 計算單個原礦的精煉結果
+        single_material_amount, single_cost = calculate_refining_result(1, refinery, selected_material)
+        
+        # 累計結果
+        total_material_amount += single_material_amount
+        total_cost += single_cost
+        
+        # 記錄材料結果
+        element_name = selected_material.name
+        if element_name not in material_results:
+            material_results[element_name] = 0.0
+        material_results[element_name] += single_material_amount
     
     # 執行精煉
     current_user.balance -= ore_amount
-    current_user.balance -= cost
+    current_user.balance -= total_cost
     
     # 根據元素類型增加庫存
-    element_name = selected_material.name
-    if element_name not in current_user.element_inventory:
-        current_user.element_inventory[element_name] = 0.0
-    current_user.element_inventory[element_name] += material_amount
+    for element_name, amount in material_results.items():
+        if element_name not in current_user.element_inventory:
+            current_user.element_inventory[element_name] = 0.0
+        current_user.element_inventory[element_name] += amount
     
     # 更新精煉廠使用量
     refinery.current_usage += ore_amount
     
-    # 創建精煉記錄
-    record = RefiningRecord(
-        user_id=current_user.id,
-        refinery_id=refinery_id,
-        material_id=selected_material.id,
-        ore_amount=ore_amount,
-        material_amount=material_amount,
-        cost=cost
-    )
-    db.session.add(record)
+    # 創建精煉記錄（為每種材料創建記錄）
+    for element_name, amount in material_results.items():
+        material = Material.query.filter_by(name=element_name).first()
+        if material:
+            record = RefiningRecord(
+                user_id=current_user.id,
+                refinery_id=refinery_id,
+                material_id=material.id,
+                ore_amount=ore_amount,  # 總原礦數量
+                material_amount=amount,  # 該材料的數量
+                cost=total_cost  # 總成本
+            )
+            db.session.add(record)
     
     db.session.commit()
     
-    flash(f'精煉成功！消耗 {ore_amount:.0f} 原礦，獲得 {material_amount:.2f} {selected_material.name}')
+    # 生成結果消息
+    result_messages = []
+    for element_name, amount in material_results.items():
+        result_messages.append(f"{amount:.2f} {element_name}")
+    
+    flash(f'精煉成功！消耗 {ore_amount:.0f} 原礦，獲得：{", ".join(result_messages)}')
     return redirect(url_for('refinery'))
 
 # 定時任務
