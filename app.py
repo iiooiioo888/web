@@ -39,10 +39,8 @@ class User(UserMixin, db.Model):
     consecutive_mining_days = db.Column(db.Integer, default=0)  # 連續挖礦天數
     last_mining_date = db.Column(db.Date)  # 最後挖礦日期
     
-    # 材料庫存
-    iron = db.Column(db.Float, default=0.0)  # 鐵
-    copper = db.Column(db.Float, default=0.0)  # 銅
-    stone = db.Column(db.Float, default=0.0)  # 石
+    # 元素庫存 - 使用JSON字段存儲所有元素
+    element_inventory = db.Column(db.JSON, default=dict)  # 元素庫存
     
     # 關聯
     mining_sessions = db.relationship('MiningSession', backref='user', lazy=True)
@@ -102,12 +100,14 @@ class Refinery(db.Model):
     correction_factor = db.Column(db.Float, default=1.0)  # 修正系數
 
 class Material(db.Model):
-    """材料模型"""
+    """元素材料模型"""
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
+    symbol = db.Column(db.String(10), nullable=False)  # 元素符號
+    name = db.Column(db.String(50), nullable=False)  # 元素中文名
     description = db.Column(db.Text)
     base_value = db.Column(db.Float, default=0.0)  # 基礎價值
-    rarity = db.Column(db.String(20), default='common')  # 稀有度
+    rarity = db.Column(db.String(20), default='common')  # 稀有度: common, rare, very-rare
+    color = db.Column(db.String(7), default='#000000')  # 元素顏色
     is_active = db.Column(db.Boolean, default=True)  # 是否可精煉
 
 class RefiningRecord(db.Model):
@@ -481,14 +481,41 @@ def refine():
         flash('原礦餘額不足')
         return redirect(url_for('refinery'))
     
-    # 隨機選擇產出材料
+    # 隨機選擇產出元素
     available_materials = Material.query.filter_by(is_active=True).all()
     if not available_materials:
-        flash('沒有可用的材料')
+        flash('沒有可用的元素')
         return redirect(url_for('refinery'))
     
-    # 均等機率隨機選擇材料（鐵、銅、石各33.33%）
-    selected_material = random.choice(available_materials)
+    # 基於稀有度的加權隨機選擇
+    materials_by_rarity = {
+        'common': [],
+        'rare': [],
+        'very-rare': []
+    }
+    
+    for material in available_materials:
+        materials_by_rarity[material.rarity].append(material)
+    
+    # 設定稀有度權重
+    rarity_weights = {
+        'common': 0.7,      # 70% 機率獲得常見元素
+        'rare': 0.25,       # 25% 機率獲得稀有元素
+        'very-rare': 0.05   # 5% 機率獲得極稀有元素
+    }
+    
+    # 根據權重選擇稀有度
+    selected_rarity = random.choices(
+        list(rarity_weights.keys()),
+        weights=list(rarity_weights.values())
+    )[0]
+    
+    # 從選中的稀有度中隨機選擇元素
+    if materials_by_rarity[selected_rarity]:
+        selected_material = random.choice(materials_by_rarity[selected_rarity])
+    else:
+        # 如果該稀有度沒有元素，從常見元素中選擇
+        selected_material = random.choice(materials_by_rarity['common'])
     
     # 計算精煉結果
     material_amount, cost = calculate_refining_result(ore_amount, refinery, selected_material)
@@ -502,13 +529,11 @@ def refine():
     current_user.balance -= ore_amount
     current_user.balance -= cost
     
-    # 根據材料類型增加庫存
-    if selected_material.name == '鐵':
-        current_user.iron += material_amount
-    elif selected_material.name == '銅':
-        current_user.copper += material_amount
-    elif selected_material.name == '石':
-        current_user.stone += material_amount
+    # 根據元素類型增加庫存
+    element_name = selected_material.name
+    if element_name not in current_user.element_inventory:
+        current_user.element_inventory[element_name] = 0.0
+    current_user.element_inventory[element_name] += material_amount
     
     # 更新精煉廠使用量
     refinery.current_usage += ore_amount

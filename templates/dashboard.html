@@ -53,34 +53,14 @@
             </div>
         </div>
         
-        <!-- 材料庫存 -->
+        <!-- 元素庫存 -->
         <div class="card mt-3">
             <div class="card-body">
                 <h5 class="card-title">
-                    <i class="fas fa-boxes text-primary me-2"></i>材料庫存
+                    <i class="fas fa-atom text-primary me-2"></i>元素庫存
                 </h5>
-                <div class="row">
-                    <div class="col-4 text-center">
-                        <div class="material-item">
-                            <i class="fas fa-cube text-warning fa-2x mb-2"></i>
-                            <h6>鐵</h6>
-                            <span class="badge bg-warning">{{ current_user.iron|round(2) }}</span>
-                        </div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="material-item">
-                            <i class="fas fa-cube text-success fa-2x mb-2"></i>
-                            <h6>銅</h6>
-                            <span class="badge bg-success">{{ current_user.copper|round(2) }}</span>
-                        </div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="material-item">
-                            <i class="fas fa-cube text-secondary fa-2x mb-2"></i>
-                            <h6>石</h6>
-                            <span class="badge bg-secondary">{{ current_user.stone|round(2) }}</span>
-                        </div>
-                    </div>
+                <div id="dashboard-element-inventory">
+                    <!-- 元素庫存將通過JavaScript動態生成 -->
                 </div>
                 <div class="text-center mt-3">
                     <a href="{{ url_for('refinery') }}" class="btn btn-primary btn-sm">
@@ -246,42 +226,164 @@
 </style>
 
 <script>
-function stopMining() {
-    if (confirm('確定要停止挖礦嗎？')) {
-        fetch('/stop_mining', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                location.reload();
-            } else {
-                alert('停止挖礦失敗：' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('操作失敗，請重試');
-        });
-    }
-}
+        // 元素週期表數據（簡化版）
+        const elements = [
+            // 常見元素
+            {symbol: "H", name: "氫", rarity: "common", color: "#e74c3c"},
+            {symbol: "He", name: "氦", rarity: "common", color: "#3498db"},
+            {symbol: "Li", name: "鋰", rarity: "common", color: "#f39c12"},
+            {symbol: "Be", name: "鈹", rarity: "common", color: "#2ecc71"},
+            {symbol: "B", name: "硼", rarity: "common", color: "#9b59b6"},
+            {symbol: "C", name: "碳", rarity: "common", color: "#34495e"},
+            {symbol: "N", name: "氮", rarity: "common", color: "#1abc9c"},
+            {symbol: "O", name: "氧", rarity: "common", color: "#e67e22"},
+            {symbol: "F", name: "氟", rarity: "common", color: "#d35400"},
+            {symbol: "Ne", name: "氖", rarity: "common", color: "#8e44ad"},
+            {symbol: "Na", name: "鈉", rarity: "common", color: "#f1c40f"},
+            {symbol: "Mg", name: "鎂", rarity: "common", color: "#27ae60"},
+            {symbol: "Al", name: "鋁", rarity: "common", color: "#7f8c8d"},
+            {symbol: "Si", name: "矽", rarity: "common", color: "#bdc3c7"},
+            {symbol: "P", name: "磷", rarity: "common", color: "#c0392b"},
+            {symbol: "S", name: "硫", rarity: "common", color: "#f39c12"},
+            {symbol: "Cl", name: "氯", rarity: "common", color: "#16a085"},
+            {symbol: "Ar", name: "氬", rarity: "common", color: "#3498db"},
+            
+            // 稀有元素
+            {symbol: "K", name: "鉀", rarity: "rare", color: "#e67e22"},
+            {symbol: "Ca", name: "鈣", rarity: "rare", color: "#9b59b6"},
+            {symbol: "Sc", name: "鈧", rarity: "rare", color: "#34495e"},
+            {symbol: "Ti", name: "鈦", rarity: "rare", color: "#2c3e50"},
+            {symbol: "V", name: "釩", rarity: "rare", color: "#8e44ad"},
+            {symbol: "Cr", name: "鉻", rarity: "rare", color: "#e74c3c"},
+            {symbol: "Mn", name: "錳", rarity: "rare", color: "#f39c12"},
+            {symbol: "Fe", name: "鐵", rarity: "rare", color: "#7f8c8d"},
+            {symbol: "Co", name: "鈷", rarity: "rare", color: "#3498db"},
+            {symbol: "Ni", name: "鎳", rarity: "rare", color: "#27ae60"},
+            {symbol: "Cu", name: "銅", rarity: "rare", color: "#d35400"},
+            {symbol: "Zn", name: "鋅", rarity: "rare", color: "#1abc9c"},
+            {symbol: "Ga", name: "鎵", rarity: "rare", color: "#c0392b"},
+            {symbol: "Ge", name: "鍺", rarity: "rare", color: "#f1c40f"},
+            {symbol: "As", name: "砷", rarity: "rare", color: "#2ecc71"},
+            {symbol: "Se", name: "硒", rarity: "rare", color: "#95a5a6"},
+            {symbol: "Br", name: "溴", rarity: "rare", color: "#e74c3c"},
+            {symbol: "Kr", name: "氪", rarity: "rare", color: "#3498db"},
+            {symbol: "Ag", name: "銀", rarity: "rare", color: "#bdc3c7"},
+            {symbol: "Cd", name: "鎘", rarity: "rare", color: "#8e44ad"},
+            {symbol: "In", name: "銦", rarity: "rare", color: "#f39c12"},
+            {symbol: "Sn", name: "錫", rarity: "rare", color: "#7f8c8d"},
+            {symbol: "Sb", name: "銻", rarity: "rare", color: "#34495e"},
+            {symbol: "Te", name: "碲", rarity: "rare", color: "#16a085"},
+            {symbol: "I", name: "碘", rarity: "rare", color: "#c0392b"},
+            {symbol: "Xe", name: "氙", rarity: "rare", color: "#3498db"},
+            {symbol: "Cs", name: "銫", rarity: "rare", color: "#f1c40f"},
+            {symbol: "Ba", name: "鋇", rarity: "rare", color: "#27ae60"},
+            {symbol: "Au", name: "金", rarity: "rare", color: "#f1c40f"},
+            {symbol: "Hg", name: "汞", rarity: "rare", color: "#bdc3c7"},
+            {symbol: "Tl", name: "鉈", rarity: "rare", color: "#7f8c8d"},
+            {symbol: "Pb", name: "鉛", rarity: "rare", color: "#34495e"},
+            {symbol: "Bi", name: "鉍", rarity: "rare", color: "#8e44ad"},
+            {symbol: "Po", name: "釙", rarity: "rare", color: "#e74c3c"},
+            {symbol: "At", name: "砈", rarity: "rare", color: "#d35400"},
+            {symbol: "Rn", name: "氡", rarity: "rare", color: "#3498db"},
+            
+            // 極稀有元素
+            {symbol: "Fr", name: "鈁", rarity: "very-rare", color: "#e74c3c"},
+            {symbol: "Ra", name: "鐳", rarity: "very-rare", color: "#f39c12"},
+            {symbol: "Ac", name: "錒", rarity: "very-rare", color: "#8e44ad"},
+            {symbol: "Th", name: "釷", rarity: "very-rare", color: "#34495e"},
+            {symbol: "Pa", name: "鏷", rarity: "very-rare", color: "#2c3e50"},
+            {symbol: "U", name: "鈾", rarity: "very-rare", color: "#7f8c8d"},
+            {symbol: "Np", name: "錼", rarity: "very-rare", color: "#1abc9c"},
+            {symbol: "Pu", name: "鈈", rarity: "very-rare", color: "#c0392b"},
+            {symbol: "Am", name: "鋂", rarity: "very-rare", color: "#f39c12"},
+            {symbol: "Cm", name: "鋦", rarity: "very-rare", color: "#9b59b6"}
+        ];
 
-// 更新挖礦時長
-function updateMiningDuration() {
-    fetch('/api/mining_status')
-        .then(response => response.json())
-        .then(data => {
-            if (data.is_mining) {
-                document.getElementById('mining-duration').textContent = data.duration + ' 小時';
-            }
-        });
-}
+        // 用戶元素庫存數據
+        const userInventory = {{ current_user.element_inventory|tojson|safe }};
 
-// 每30秒更新一次挖礦時長
-setInterval(updateMiningDuration, 30000);
-updateMiningDuration();
+        function stopMining() {
+            if (confirm('確定要停止挖礦嗎？')) {
+                fetch('/stop_mining', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('停止挖礦失敗：' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('操作失敗，請重試');
+                });
+            }
+        }
+
+        // 更新挖礦時長
+        function updateMiningDuration() {
+            fetch('/api/mining_status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_mining) {
+                        document.getElementById('mining-duration').textContent = data.duration + ' 小時';
+                    }
+                });
+        }
+
+        // 生成元素庫存顯示
+        function generateDashboardElementInventory() {
+            const elementInventoryDiv = document.getElementById('dashboard-element-inventory');
+            elementInventoryDiv.innerHTML = '';
+            
+            let hasInventory = false;
+            
+            elements.forEach(element => {
+                const amount = userInventory[element.name] || 0;
+                if (amount > 0) {  // 只顯示有庫存的元素
+                    hasInventory = true;
+                    const rarityClass = element.rarity === 'common' ? 'bg-success' : 
+                                      element.rarity === 'rare' ? 'bg-warning' : 'bg-danger';
+                    
+                    const elementHtml = `
+                        <div class="col-md-2 col-sm-3 col-4 mb-2">
+                            <div class="element-item" style="border-left: 4px solid ${element.color};">
+                                <div class="text-center">
+                                    <div class="element-symbol" style="color: ${element.color}; font-weight: bold; font-size: 1em;">
+                                        ${element.symbol}
+                                    </div>
+                                    <div class="element-name" style="font-size: 0.7em; color: #666;">
+                                        ${element.name}
+                                    </div>
+                                    <span class="badge ${rarityClass}" style="font-size: 0.6em;">${amount.toFixed(1)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    elementInventoryDiv.innerHTML += elementHtml;
+                }
+            });
+            
+            if (!hasInventory) {
+                elementInventoryDiv.innerHTML = `
+                    <div class="col-12 text-center text-muted">
+                        <i class="fas fa-atom fa-2x mb-2"></i>
+                        <p class="small">暫無元素庫存</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 初始化
+        generateDashboardElementInventory();
+
+        // 每30秒更新一次挖礦時長
+        setInterval(updateMiningDuration, 30000);
+        updateMiningDuration();
 </script>
 {% endblock %} 

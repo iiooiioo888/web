@@ -4,35 +4,15 @@
 
 {% block content %}
 <div class="row">
-    <!-- 材料庫存 -->
-    <div class="col-md-4 mb-4">
+    <!-- 元素庫存 -->
+    <div class="col-md-12 mb-4">
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">
-                    <i class="fas fa-boxes text-primary me-2"></i>材料庫存
+                    <i class="fas fa-atom text-primary me-2"></i>元素庫存
                 </h5>
-                <div class="row">
-                    <div class="col-4 text-center">
-                        <div class="material-item">
-                            <i class="fas fa-cube text-warning fa-2x mb-2"></i>
-                            <h6>鐵</h6>
-                            <span class="badge bg-warning">{{ current_user.iron|round(2) }}</span>
-                        </div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="material-item">
-                            <i class="fas fa-cube text-success fa-2x mb-2"></i>
-                            <h6>銅</h6>
-                            <span class="badge bg-success">{{ current_user.copper|round(2) }}</span>
-                        </div>
-                    </div>
-                    <div class="col-4 text-center">
-                        <div class="material-item">
-                            <i class="fas fa-cube text-secondary fa-2x mb-2"></i>
-                            <h6>石</h6>
-                            <span class="badge bg-secondary">{{ current_user.stone|round(2) }}</span>
-                        </div>
-                    </div>
+                <div class="row" id="element-inventory">
+                    <!-- 元素庫存將通過JavaScript動態生成 -->
                 </div>
             </div>
         </div>
@@ -208,16 +188,27 @@
 </div>
 
 <style>
-.material-item {
+.element-item {
     padding: 15px;
     border-radius: 8px;
     background: #f8f9fa;
     transition: all 0.3s ease;
+    border: 1px solid #dee2e6;
 }
 
-.material-item:hover {
+.element-item:hover {
     background: #e9ecef;
     transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.element-symbol {
+    font-family: 'Courier New', monospace;
+    margin-bottom: 5px;
+}
+
+.element-name {
+    margin-bottom: 8px;
 }
 
 .refinery-info {
@@ -235,54 +226,186 @@
     font-size: 12px;
     line-height: 20px;
 }
+
+.badge.bg-success {
+    background-color: #28a745 !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const refinerySelect = document.getElementById('refinery_id');
-    const oreAmountInput = document.getElementById('ore_amount');
-    const previewDiv = document.getElementById('refining-preview');
-    const previewText = document.getElementById('preview-text');
-    
-    function updatePreview() {
-        const refinery = refinerySelect.options[refinerySelect.selectedIndex];
-        const oreAmount = parseFloat(oreAmountInput.value) || 0;
-        
-        if (refinery.value && oreAmount > 0) {
-            const efficiency = parseFloat(refinery.dataset.efficiency);
-            const costPerOre = parseFloat(refinery.dataset.cost);
-            const refiningMultiplier = parseFloat(refinery.dataset.refiningMultiplier);
-            const environmentMultiplier = parseFloat(refinery.dataset.environmentMultiplier);
-            const correctionFactor = parseFloat(refinery.dataset.correctionFactor);
+        // 元素週期表數據（簡化版）
+        const elements = [
+            // 常見元素
+            {symbol: "H", name: "氫", rarity: "common", color: "#e74c3c"},
+            {symbol: "He", name: "氦", rarity: "common", color: "#3498db"},
+            {symbol: "Li", name: "鋰", rarity: "common", color: "#f39c12"},
+            {symbol: "Be", name: "鈹", rarity: "common", color: "#2ecc71"},
+            {symbol: "B", name: "硼", rarity: "common", color: "#9b59b6"},
+            {symbol: "C", name: "碳", rarity: "common", color: "#34495e"},
+            {symbol: "N", name: "氮", rarity: "common", color: "#1abc9c"},
+            {symbol: "O", name: "氧", rarity: "common", color: "#e67e22"},
+            {symbol: "F", name: "氟", rarity: "common", color: "#d35400"},
+            {symbol: "Ne", name: "氖", rarity: "common", color: "#8e44ad"},
+            {symbol: "Na", name: "鈉", rarity: "common", color: "#f1c40f"},
+            {symbol: "Mg", name: "鎂", rarity: "common", color: "#27ae60"},
+            {symbol: "Al", name: "鋁", rarity: "common", color: "#7f8c8d"},
+            {symbol: "Si", name: "矽", rarity: "common", color: "#bdc3c7"},
+            {symbol: "P", name: "磷", rarity: "common", color: "#c0392b"},
+            {symbol: "S", name: "硫", rarity: "common", color: "#f39c12"},
+            {symbol: "Cl", name: "氯", rarity: "common", color: "#16a085"},
+            {symbol: "Ar", name: "氬", rarity: "common", color: "#3498db"},
             
-            // 計算最終材料數量（包含所有倍數）
-            const baseRatio = 0.1;
-            const efficiencyRatio = baseRatio * efficiency;
-            const refiningRatio = efficiencyRatio * refiningMultiplier;
-            const environmentRatio = refiningRatio * environmentMultiplier;
-            const finalRatio = environmentRatio * correctionFactor;
-            const materialAmount = oreAmount * finalRatio;
+            // 稀有元素
+            {symbol: "K", name: "鉀", rarity: "rare", color: "#e67e22"},
+            {symbol: "Ca", name: "鈣", rarity: "rare", color: "#9b59b6"},
+            {symbol: "Sc", name: "鈧", rarity: "rare", color: "#34495e"},
+            {symbol: "Ti", name: "鈦", rarity: "rare", color: "#2c3e50"},
+            {symbol: "V", name: "釩", rarity: "rare", color: "#8e44ad"},
+            {symbol: "Cr", name: "鉻", rarity: "rare", color: "#e74c3c"},
+            {symbol: "Mn", name: "錳", rarity: "rare", color: "#f39c12"},
+            {symbol: "Fe", name: "鐵", rarity: "rare", color: "#7f8c8d"},
+            {symbol: "Co", name: "鈷", rarity: "rare", color: "#3498db"},
+            {symbol: "Ni", name: "鎳", rarity: "rare", color: "#27ae60"},
+            {symbol: "Cu", name: "銅", rarity: "rare", color: "#d35400"},
+            {symbol: "Zn", name: "鋅", rarity: "rare", color: "#1abc9c"},
+            {symbol: "Ga", name: "鎵", rarity: "rare", color: "#c0392b"},
+            {symbol: "Ge", name: "鍺", rarity: "rare", color: "#f1c40f"},
+            {symbol: "As", name: "砷", rarity: "rare", color: "#2ecc71"},
+            {symbol: "Se", name: "硒", rarity: "rare", color: "#95a5a6"},
+            {symbol: "Br", name: "溴", rarity: "rare", color: "#e74c3c"},
+            {symbol: "Kr", name: "氪", rarity: "rare", color: "#3498db"},
+            {symbol: "Ag", name: "銀", rarity: "rare", color: "#bdc3c7"},
+            {symbol: "Cd", name: "鎘", rarity: "rare", color: "#8e44ad"},
+            {symbol: "In", name: "銦", rarity: "rare", color: "#f39c12"},
+            {symbol: "Sn", name: "錫", rarity: "rare", color: "#7f8c8d"},
+            {symbol: "Sb", name: "銻", rarity: "rare", color: "#34495e"},
+            {symbol: "Te", name: "碲", rarity: "rare", color: "#16a085"},
+            {symbol: "I", name: "碘", rarity: "rare", color: "#c0392b"},
+            {symbol: "Xe", name: "氙", rarity: "rare", color: "#3498db"},
+            {symbol: "Cs", name: "銫", rarity: "rare", color: "#f1c40f"},
+            {symbol: "Ba", name: "鋇", rarity: "rare", color: "#27ae60"},
+            {symbol: "Au", name: "金", rarity: "rare", color: "#f1c40f"},
+            {symbol: "Hg", name: "汞", rarity: "rare", color: "#bdc3c7"},
+            {symbol: "Tl", name: "鉈", rarity: "rare", color: "#7f8c8d"},
+            {symbol: "Pb", name: "鉛", rarity: "rare", color: "#34495e"},
+            {symbol: "Bi", name: "鉍", rarity: "rare", color: "#8e44ad"},
+            {symbol: "Po", name: "釙", rarity: "rare", color: "#e74c3c"},
+            {symbol: "At", name: "砈", rarity: "rare", color: "#d35400"},
+            {symbol: "Rn", name: "氡", rarity: "rare", color: "#3498db"},
             
-            const totalCost = oreAmount * costPerOre;
+            // 極稀有元素
+            {symbol: "Fr", name: "鈁", rarity: "very-rare", color: "#e74c3c"},
+            {symbol: "Ra", name: "鐳", rarity: "very-rare", color: "#f39c12"},
+            {symbol: "Ac", name: "錒", rarity: "very-rare", color: "#8e44ad"},
+            {symbol: "Th", name: "釷", rarity: "very-rare", color: "#34495e"},
+            {symbol: "Pa", name: "鏷", rarity: "very-rare", color: "#2c3e50"},
+            {symbol: "U", name: "鈾", rarity: "very-rare", color: "#7f8c8d"},
+            {symbol: "Np", name: "錼", rarity: "very-rare", color: "#1abc9c"},
+            {symbol: "Pu", name: "鈈", rarity: "very-rare", color: "#c0392b"},
+            {symbol: "Am", name: "鋂", rarity: "very-rare", color: "#f39c12"},
+            {symbol: "Cm", name: "鋦", rarity: "very-rare", color: "#9b59b6"}
+        ];
+
+        // 用戶元素庫存數據
+        const userInventory = {{ current_user.element_inventory|tojson|safe }};
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const refinerySelect = document.getElementById('refinery_id');
+            const oreAmountInput = document.getElementById('ore_amount');
+            const previewDiv = document.getElementById('refining-preview');
+            const previewText = document.getElementById('preview-text');
+            const elementInventoryDiv = document.getElementById('element-inventory');
             
-            previewText.innerHTML = `
-                消耗: ${oreAmount} 原礦<br>
-                預估獲得: ${materialAmount.toFixed(2)} 材料<br>
-                成本: ${totalCost.toFixed(0)} 原礦<br>
-                總消耗: ${(oreAmount + totalCost).toFixed(0)} 原礦<br>
-                <small class="text-muted">
-                    效率: ${efficiency}x | 精煉: ${refiningMultiplier}x | 環境: ${environmentMultiplier}x | 修正: ${correctionFactor}x<br>
-                    <i class="fas fa-info-circle"></i> 產出材料由系統隨機決定
-                </small>
-            `;
-            previewDiv.style.display = 'block';
-        } else {
-            previewDiv.style.display = 'none';
-        }
-    }
-    
-    refinerySelect.addEventListener('change', updatePreview);
-    oreAmountInput.addEventListener('input', updatePreview);
-});
+            // 生成元素庫存顯示
+            function generateElementInventory() {
+                elementInventoryDiv.innerHTML = '';
+                
+                elements.forEach(element => {
+                    const amount = userInventory[element.name] || 0;
+                    if (amount > 0) {  // 只顯示有庫存的元素
+                        const rarityClass = element.rarity === 'common' ? 'bg-success' : 
+                                          element.rarity === 'rare' ? 'bg-warning' : 'bg-danger';
+                        
+                        const elementHtml = `
+                            <div class="col-md-2 col-sm-3 col-4 mb-3">
+                                <div class="element-item" style="border-left: 4px solid ${element.color};">
+                                    <div class="text-center">
+                                        <div class="element-symbol" style="color: ${element.color}; font-weight: bold; font-size: 1.2em;">
+                                            ${element.symbol}
+                                        </div>
+                                        <div class="element-name" style="font-size: 0.8em; color: #666;">
+                                            ${element.name}
+                                        </div>
+                                        <span class="badge ${rarityClass}">${amount.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        elementInventoryDiv.innerHTML += elementHtml;
+                    }
+                });
+                
+                if (elementInventoryDiv.innerHTML === '') {
+                    elementInventoryDiv.innerHTML = `
+                        <div class="col-12 text-center text-muted">
+                            <i class="fas fa-atom fa-3x mb-3"></i>
+                            <p>暫無元素庫存</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            function updatePreview() {
+                const refinery = refinerySelect.options[refinerySelect.selectedIndex];
+                const oreAmount = parseFloat(oreAmountInput.value) || 0;
+                
+                if (refinery.value && oreAmount > 0) {
+                    const efficiency = parseFloat(refinery.dataset.efficiency);
+                    const costPerOre = parseFloat(refinery.dataset.cost);
+                    const refiningMultiplier = parseFloat(refinery.dataset.refiningMultiplier);
+                    const environmentMultiplier = parseFloat(refinery.dataset.environmentMultiplier);
+                    const correctionFactor = parseFloat(refinery.dataset.correctionFactor);
+                    
+                    // 計算最終材料數量（包含所有倍數）
+                    const baseRatio = 0.1;
+                    const efficiencyRatio = baseRatio * efficiency;
+                    const refiningRatio = efficiencyRatio * refiningMultiplier;
+                    const environmentRatio = refiningRatio * environmentMultiplier;
+                    const finalRatio = environmentRatio * correctionFactor;
+                    const materialAmount = oreAmount * finalRatio;
+                    
+                    const totalCost = oreAmount * costPerOre;
+                    
+                    previewText.innerHTML = `
+                        消耗: ${oreAmount} 原礦<br>
+                        預估獲得: ${materialAmount.toFixed(2)} 元素<br>
+                        成本: ${totalCost.toFixed(0)} 原礦<br>
+                        總消耗: ${(oreAmount + totalCost).toFixed(0)} 原礦<br>
+                        <small class="text-muted">
+                            效率: ${efficiency}x | 精煉: ${refiningMultiplier}x | 環境: ${environmentMultiplier}x | 修正: ${correctionFactor}x<br>
+                            <i class="fas fa-info-circle"></i> 產出元素由系統隨機決定（基於稀有度）
+                        </small>
+                    `;
+                    previewDiv.style.display = 'block';
+                } else {
+                    previewDiv.style.display = 'none';
+                }
+            }
+            
+            // 初始化
+            generateElementInventory();
+            
+            refinerySelect.addEventListener('change', updatePreview);
+            oreAmountInput.addEventListener('input', updatePreview);
+        });
 </script>
 {% endblock %} 
