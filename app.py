@@ -242,11 +242,12 @@ def register():
             flash('郵箱已被註冊')
             return redirect(url_for('register'))
         
-        # 創建新用戶
+        # 創建新用戶，確保元素庫存被正確初始化
         user = User(
             username=username,
             email=email,
-            password_hash=generate_password_hash(password)
+            password_hash=generate_password_hash(password),
+            element_inventory={}  # 明確初始化為空字典
         )
         db.session.add(user)
         db.session.commit()
@@ -298,12 +299,24 @@ def dashboard():
     refineries = Refinery.query.filter_by(is_active=True).all()
     materials = get_refining_materials()
     
+    # 將材料數據轉換為JSON格式
+    materials_json = []
+    for material in materials:
+        materials_json.append({
+            'id': material.id,
+            'symbol': material.symbol,
+            'name': material.name,
+            'color': material.color,
+            'rarity': material.rarity,
+            'base_value': material.base_value
+        })
+    
     return render_template('dashboard.html', 
                           active_session=active_session,
                           mines=mines,
                           recent_rewards=recent_rewards,
                           refineries=refineries,
-                          materials=materials)
+                          materials=materials_json)
 
 @app.route('/start_mining', methods=['POST'])
 @login_required
@@ -449,6 +462,18 @@ def refinery():
     refineries = Refinery.query.filter_by(is_active=True).all()
     materials = get_refining_materials()
     
+    # 將材料數據轉換為JSON格式
+    materials_json = []
+    for material in materials:
+        materials_json.append({
+            'id': material.id,
+            'symbol': material.symbol,
+            'name': material.name,
+            'color': material.color,
+            'rarity': material.rarity,
+            'base_value': material.base_value
+        })
+    
     # 獲取用戶的精煉記錄
     recent_refining = RefiningRecord.query.filter_by(user_id=current_user.id).order_by(
         RefiningRecord.refining_time.desc()
@@ -456,7 +481,7 @@ def refinery():
     
     return render_template('refinery.html',
                           refineries=refineries,
-                          materials=materials,
+                          materials=materials_json,
                           recent_refining=recent_refining)
 
 @app.route('/refine', methods=['POST'])
@@ -548,9 +573,17 @@ def refine():
     
     # 根據元素類型增加庫存
     for element_name, amount in material_results.items():
-        if element_name not in current_user.element_inventory:
-            current_user.element_inventory[element_name] = 0.0
-        current_user.element_inventory[element_name] += amount
+        # 確保element_inventory不為None
+        if current_user.element_inventory is None:
+            current_user.element_inventory = {}
+        
+        # 使用元素符號作為鍵值
+        material = Material.query.filter_by(name=element_name).first()
+        if material:
+            element_symbol = material.symbol
+            if element_symbol not in current_user.element_inventory:
+                current_user.element_inventory[element_symbol] = 0.0
+            current_user.element_inventory[element_symbol] += amount
     
     # 更新精煉廠使用量
     refinery.current_usage += ore_amount
@@ -650,9 +683,31 @@ def init_database():
         # 創建默認材料
         if not Material.query.first():
             materials = [
-                Material(name="鐵", description="基礎金屬材料", base_value=100.0, rarity="common"),
-                Material(name="銅", description="導電性良好的金屬", base_value=150.0, rarity="common"),
-                Material(name="石", description="基礎建築材料", base_value=50.0, rarity="common")
+                # 常見元素
+                Material(symbol="H", name="氫", description="最輕的元素", base_value=10.0, rarity="common", color="#e74c3c"),
+                Material(symbol="He", name="氦", description="惰性氣體", base_value=15.0, rarity="common", color="#3498db"),
+                Material(symbol="Li", name="鋰", description="鹼金屬", base_value=20.0, rarity="common", color="#f39c12"),
+                Material(symbol="Be", name="鈹", description="鹼土金屬", base_value=25.0, rarity="common", color="#2ecc71"),
+                Material(symbol="B", name="硼", description="半導體元素", base_value=30.0, rarity="common", color="#9b59b6"),
+                Material(symbol="C", name="碳", description="生命基礎", base_value=35.0, rarity="common", color="#34495e"),
+                Material(symbol="N", name="氮", description="空氣主要成分", base_value=40.0, rarity="common", color="#1abc9c"),
+                Material(symbol="O", name="氧", description="生命必需", base_value=45.0, rarity="common", color="#e67e22"),
+                Material(symbol="F", name="氟", description="最活潑的非金屬", base_value=50.0, rarity="common", color="#95a5a6"),
+                Material(symbol="Ne", name="氖", description="稀有氣體", base_value=55.0, rarity="common", color="#f1c40f"),
+                
+                # 稀有元素
+                Material(symbol="Au", name="金", description="貴重金屬", base_value=100.0, rarity="rare", color="#f39c12"),
+                Material(symbol="Ag", name="銀", description="導電性極佳", base_value=80.0, rarity="rare", color="#bdc3c7"),
+                Material(symbol="Pt", name="鉑", description="催化劑", base_value=120.0, rarity="rare", color="#95a5a6"),
+                Material(symbol="Pd", name="鈀", description="汽車催化劑", base_value=90.0, rarity="rare", color="#34495e"),
+                Material(symbol="Rh", name="銠", description="最昂貴的金屬", base_value=150.0, rarity="rare", color="#e74c3c"),
+                
+                # 極稀有元素
+                Material(symbol="U", name="鈾", description="核燃料", base_value=200.0, rarity="very-rare", color="#8e44ad"),
+                Material(symbol="Pu", name="鈽", description="人造元素", base_value=250.0, rarity="very-rare", color="#2c3e50"),
+                Material(symbol="Th", name="釷", description="放射性元素", base_value=180.0, rarity="very-rare", color="#16a085"),
+                Material(symbol="Ra", name="鐳", description="居里夫人發現", base_value=220.0, rarity="very-rare", color="#e67e22"),
+                Material(symbol="Ac", name="錒", description="錒系元素", base_value=160.0, rarity="very-rare", color="#d35400")
             ]
             db.session.add_all(materials)
             db.session.commit()

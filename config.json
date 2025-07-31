@@ -1,0 +1,25 @@
+{
+    "chains": {
+        "ethereum": {
+            "rpc_url": "https://mainnet.infura.io/v3/50e39fa39f7e4745866f7c4f717651d4",
+            "chain_id": 1,
+            "token_addresses": [
+                "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+                "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+            ]
+        },
+        "bsc": {
+            "rpc_url": "https://bsc-dataseed.binance.org/",
+            "chain_id": 56,
+            "token_addresses": [
+                "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+                "0x55d398326f99059fF775485246999027B3197955"
+            ]
+        }
+    },
+    "monitored_addresses": [
+        "0xf7b330c1d69bc1dcc5ab66f71b1c5119b40cfd03",
+        "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+    ],
+    "database": "addresses.db"
+}

@@ -59,7 +59,7 @@
                 <h5 class="card-title">
                     <i class="fas fa-atom text-primary me-2"></i>元素庫存
                 </h5>
-                <div id="dashboard-element-inventory">
+                <div id="element-inventory">
                     <!-- 元素庫存將通過JavaScript動態生成 -->
                 </div>
                 <div class="text-center mt-3">
@@ -223,6 +223,36 @@
 .progress-bar {
     border-radius: 4px;
 }
+
+        <style>
+            .element-item {
+                display: inline-block;
+                margin: 5px;
+                padding: 10px;
+                border-radius: 8px;
+                text-align: center;
+                min-width: 80px;
+                color: white;
+                font-weight: bold;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            
+            .element-symbol {
+                font-size: 18px;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            
+            .element-name {
+                font-size: 12px;
+                margin-bottom: 3px;
+            }
+            
+            .element-amount {
+                font-size: 10px;
+                opacity: 0.9;
+            }
+        </style>
 </style>
 
 <script>
@@ -300,7 +330,7 @@
         ];
 
         // 用戶元素庫存數據
-        const userInventory = {{ current_user.element_inventory|tojson|safe }};
+        const userInventory = {{ current_user.element_inventory|tojson|safe if current_user.element_inventory else '{}' }};
 
         function stopMining() {
             if (confirm('確定要停止挖礦嗎？')) {
@@ -337,53 +367,47 @@
         }
 
         // 生成元素庫存顯示
-        function generateDashboardElementInventory() {
-            const elementInventoryDiv = document.getElementById('dashboard-element-inventory');
+        function generateElementInventory() {
+            const elementInventoryDiv = document.getElementById('element-inventory');
             elementInventoryDiv.innerHTML = '';
             
-            let hasInventory = false;
+            // 確保userInventory是對象
+            const inventory = typeof userInventory === 'object' && userInventory !== null ? userInventory : {};
             
-            elements.forEach(element => {
-                const amount = userInventory[element.name] || 0;
-                if (amount > 0) {  // 只顯示有庫存的元素
-                    hasInventory = true;
-                    const rarityClass = element.rarity === 'common' ? 'bg-success' : 
-                                      element.rarity === 'rare' ? 'bg-warning' : 'bg-danger';
-                    
-                    const elementHtml = `
-                        <div class="col-md-2 col-sm-3 col-4 mb-2">
-                            <div class="element-item" style="border-left: 4px solid ${element.color};">
-                                <div class="text-center">
-                                    <div class="element-symbol" style="color: ${element.color}; font-weight: bold; font-size: 1em;">
-                                        ${element.symbol}
-                                    </div>
-                                    <div class="element-name" style="font-size: 0.7em; color: #666;">
-                                        ${element.name}
-                                    </div>
-                                    <span class="badge ${rarityClass}" style="font-size: 0.6em;">${amount.toFixed(1)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    elementInventoryDiv.innerHTML += elementHtml;
-                }
+            if (Object.keys(inventory).length === 0) {
+                elementInventoryDiv.innerHTML = '<p class="text-muted">暫無元素庫存</p>';
+                return;
+            }
+            
+            // 獲取所有材料信息
+            const materials = {{ materials|tojson|safe }};
+            const materialMap = {};
+            materials.forEach(material => {
+                materialMap[material.symbol] = material;
             });
             
-            if (!hasInventory) {
-                elementInventoryDiv.innerHTML = `
-                    <div class="col-12 text-center text-muted">
-                        <i class="fas fa-atom fa-2x mb-2"></i>
-                        <p class="small">暫無元素庫存</p>
-                    </div>
-                `;
+            // 生成元素卡片
+            for (const [symbol, amount] of Object.entries(inventory)) {
+                if (amount > 0) {
+                    const material = materialMap[symbol];
+                    if (material) {
+                        const elementDiv = document.createElement('div');
+                        elementDiv.className = 'element-item';
+                        elementDiv.style.backgroundColor = material.color;
+                        elementDiv.innerHTML = `
+                            <div class="element-symbol">${symbol}</div>
+                            <div class="element-name">${material.name}</div>
+                            <div class="element-amount">${amount.toFixed(2)}</div>
+                        `;
+                        elementInventoryDiv.appendChild(elementDiv);
+                    }
+                }
             }
         }
 
-        // 初始化
-        generateDashboardElementInventory();
-
-        // 每30秒更新一次挖礦時長
-        setInterval(updateMiningDuration, 30000);
-        updateMiningDuration();
+        // 頁面加載時生成元素庫存
+        document.addEventListener('DOMContentLoaded', function() {
+            generateElementInventory();
+        });
 </script>
 {% endblock %} 

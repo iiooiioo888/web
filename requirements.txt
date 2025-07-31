@@ -4,4 +4,6 @@ Flask-Login==0.6.3
 Werkzeug==2.3.7
 schedule==1.2.0
 SQLAlchemy==2.0.21
-requests==2.31.0 
+requests==2.31.0
+web3==6.11.3
+psycopg2-binary==2.9.7 
